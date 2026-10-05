@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Student Management</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+        }
+
+        h1 {
+            margin-bottom: 25px;
+        }
+
+        input {
+            padding: 10px;
+            margin: 5px;
+        }
+
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #eee;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Student Management System</h1>
+
+    <form id="studentForm">
+
+        <input
+            type="text"
+            id="name"
+            placeholder="Name"
+            required
+        >
+
+        <input
+            type="email"
+            id="email"
+            placeholder="Email"
+            required
+        >
+
+        <input
+            type="text"
+            id="department"
+            placeholder="Department"
+            required
+        >
+
+        <input
+            type="number"
+            id="semester"
+            placeholder="Semester"
+            required
+        >
+
+        <button type="submit">
+            Add Student
+        </button>
+
+    </form>
+
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Semester</th>
+            </tr>
+        </thead>
+
+        <tbody id="studentTable">
+        </tbody>
+
+    </table>
+
+</div>
+
+
+<script>
+
+const API_URL = "http://localhost:5000/api/students";
+
+
+// Get students from backend
+async function loadStudents() {
+
+    const response = await fetch(API_URL);
+
+    const students = await response.json();
+
+    const table = document.getElementById("studentTable");
+
+    table.innerHTML = "";
+
+    students.forEach(student => {
+
+        const row = `
+            <tr>
+                <td>${student.id}</td>
+                <td>${student.name}</td>
+                <td>${student.email}</td>
+                <td>${student.department}</td>
+                <td>${student.semester}</td>
+            </tr>
+        `;
+
+        table.innerHTML += row;
+    });
+}
+
+
+// Add student
+document
+    .getElementById("studentForm")
+    .addEventListener("submit", async function(event) {
+
+        event.preventDefault();
+
+        const student = {
+
+            name: document.getElementById("name").value,
+
+            email: document.getElementById("email").value,
+
+            department: document.getElementById("department").value,
+
+            semester: document.getElementById("semester").value
+
+        };
+
+
+        const response = await fetch(API_URL, {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(student)
+
+        });
+
+
+        const result = await response.json();
+
+        console.log(result);
+
+
+        // Clear form
+        document.getElementById("studentForm").reset();
+
+
+        // Reload students
+        loadStudents();
+
+    });
+
+
+// Load students when page opens
+loadStudents();
+
+</script>
+
+</body>
+</html>
