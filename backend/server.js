@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { createClient } = require("@supabase/supabase-js");
+const mysql = require("mysql2/promise");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -11,42 +11,33 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing SUPABASE_URL or SUPABASE_KEY environment variables");
-    process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Health check
-app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", database: "supabase" });
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "student_db",
+    port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-// GET all students
+app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", database: "mysql" });
+});
+
 app.get("/api/students", async (req, res) => {
     try {
-        const { data, error } = await supabase
-            .from("students")
-            .select("*");
-
-        if (error) {
-            console.error("SELECT error:", error);
-            return res.status(500).json({ error: error.message });
-        }
-
-        res.json(data);
+        const connection = await pool.getConnection();
+        const [rows] = await connection.query("SELECT * FROM students");
+        connection.release();
+        res.json(rows);
     } catch (err) {
-        console.error("Unexpected error:", err);
+        console.error("SELECT error:", err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// ADD a student
 app.post("/api/students", async (req, res) => {
     const { name, email, department, semester } = req.body;
 
@@ -55,22 +46,19 @@ app.post("/api/students", async (req, res) => {
     }
 
     try {
-        const { data, error } = await supabase
-            .from("students")
-            .insert([{ name, email, department, semester }])
-            .select();
-
-        if (error) {
-            console.error("INSERT error:", error);
-            return res.status(500).json({ error: error.message });
-        }
+        const connection = await pool.getConnection();
+        const [result] = await connection.query(
+            "INSERT INTO students (name, email, department, semester) VALUES (?, ?, ?, ?)",
+            [name, email, department, semester]
+        );
+        connection.release();
 
         res.status(201).json({
             message: "Student added successfully",
-            id: data[0].id
+            id: result.insertId
         });
     } catch (err) {
-        console.error("Unexpected error:", err);
+        console.error("INSERT error:", err);
         res.status(500).json({ error: err.message });
     }
 });
