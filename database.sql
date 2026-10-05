@@ -12,7 +12,7 @@ CREATE TABLE students (
 
 INSERT INTO students (name, email, department, semester)
 VALUES
-('Ali Khan', 'ali@example.com', 'Computer Science', 5),
+('Eman Shaikh', 'eman@example.com', 'Computer Science', 5),
 ('Sara Ahmed', 'sara@example.com', 'Software Engineering', 4),
 ('Hamza Malik', 'hamza@example.com', 'Computer Science', 6);
 
