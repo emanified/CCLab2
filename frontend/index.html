@@ -118,13 +118,19 @@
 
 <script>
 
-const API_URL = "http://localhost:5000/api/students";
+const API_URL = window.location.hostname === "localhost"
+    ? "http://localhost:5000/api/students"
+    : "/api/students";
 
 
 // Get students from backend
 async function loadStudents() {
 
     const response = await fetch(API_URL);
+
+    if (!response.ok) {
+        throw new Error(`Failed to load students: ${response.status}`);
+    }
 
     const students = await response.json();
 
@@ -181,6 +187,10 @@ document
 
         });
 
+        if (!response.ok) {
+            console.error("Failed to add student", response.statusText);
+            return;
+        }
 
         const result = await response.json();
 
@@ -198,7 +208,10 @@ document
 
 
 // Load students when page opens
-loadStudents();
+loadStudents().catch((error) => {
+    console.error(error);
+    document.getElementById("studentTable").innerHTML = "<tr><td colspan='5'>Unable to load student data. Check your backend URL.</td></tr>";
+});
 
 </script>
 
