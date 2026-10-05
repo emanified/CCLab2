@@ -1,99 +1,80 @@
 const express = require("express");
-const mysql = require("mysql2");
 const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+    origin: true,
+    credentials: true
+}));
 app.use(express.json());
 
-// Connect to MySQL
-const db = mysql.createConnection({
-    host: process.env.DB_HOST || "localhost",
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "student_db",
-    port: process.env.DB_PORT || 3306
-});
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-db.connect((err) => {
-    if (err) {
-        console.error("Database connection failed:", err);
-        // Retry connection every 5 seconds
-        setTimeout(() => {
-            db.connect();
-        }, 5000);
-        return;
-    }
+if (!supabaseUrl || !supabaseKey) {
+    console.error("Missing SUPABASE_URL or SUPABASE_KEY environment variables");
+    process.exit(1);
+}
 
-    console.log("Connected to MySQL!");
-});
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Handle connection errors
-db.on('error', (err) => {
-    console.error("Database error:", err);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-        db.connect();
-    }
-    if (err.code === 'ER_CON_COUNT_ERROR') {
-        setTimeout(() => db.connect(), 2000);
-    }
-    if (err.code === 'ER_AUTHENTICATION_PLUGIN_CACHING_SHA2_PASSWORD') {
-        setTimeout(() => db.connect(), 2000);
-    }
+// Health check
+app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", database: "supabase" });
 });
 
 // GET all students
-app.get("/api/students", (req, res) => {
-    const sql = "SELECT * FROM students";
+app.get("/api/students", async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("students")
+            .select("*");
 
-    db.query(sql, (err, results) => {
-        if (err) {
-            console.error("Query error:", err);
-            return res.status(500).json({
-                error: err.message
-            });
+        if (error) {
+            console.error("SELECT error:", error);
+            return res.status(500).json({ error: error.message });
         }
 
-        res.json(results);
-    });
+        res.json(data);
+    } catch (err) {
+        console.error("Unexpected error:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ADD a student
-app.post("/api/students", (req, res) => {
+app.post("/api/students", async (req, res) => {
     const { name, email, department, semester } = req.body;
 
-    // Validate input
     if (!name || !email) {
-        return res.status(400).json({ error: "Name and email are required" });
+        return res.status(400).json({ error: "Name and email are required." });
     }
 
-    const sql = `
-        INSERT INTO students 
-        (name, email, department, semester)
-        VALUES (?, ?, ?, ?)
-    `;
+    try {
+        const { data, error } = await supabase
+            .from("students")
+            .insert([{ name, email, department, semester }])
+            .select();
 
-    db.query(
-        sql,
-        [name, email, department, semester],
-        (err, result) => {
-            if (err) {
-                console.error("Insert error:", err);
-                return res.status(500).json({
-                    error: err.message
-                });
-            }
-
-            res.json({
-                message: "Student added successfully",
-                id: result.insertId
-            });
+        if (error) {
+            console.error("INSERT error:", error);
+            return res.status(500).json({ error: error.message });
         }
-    );
+
+        res.status(201).json({
+            message: "Student added successfully",
+            id: data[0].id
+        });
+    } catch (err) {
+        console.error("Unexpected error:", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
-const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
